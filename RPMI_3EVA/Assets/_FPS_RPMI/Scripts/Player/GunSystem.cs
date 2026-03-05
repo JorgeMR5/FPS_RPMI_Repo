@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -41,7 +42,30 @@ public class GunSystem : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        //Condición estricta de llamar a la rutina de disparo
+        if (canShoot && shooting && !reloading && bulletsLeft > 0)
+        {
+            StartCoroutine(ShootRoutine());
+        }
+    }
+
+    IEnumerator ShootRoutine()
+    {
+        //La corrutina se va a encarga de medir el tiempo entre disparos y la gestión del gasto de balas
+        //Además llamará al raycast de disparo que está definido en Shoot()
+
+        canShoot = false; //Llave de seguridad que hace que si estamos disparando no podamos disparar
+        if (!allowButtonHold) shooting = false; //Cerrar el bucle de disparo por pulsación
+        for (int i = 0; i < bulletsPerTap; i++)
+        {
+            if (bulletsLeft <= 0) break; //Segunda prevención de errores: si no me quedan balas no hago daño
+            Shoot(); //Llamada al Raycast que define el disparo
+            bulletsLeft--; //Resta 1 a la cantidad de balas del cargador actual
+        }
+
+        //Espera entre disparos
+        yield return new WaitForSeconds(shootingCooldown);
+        canShoot = true; //Resetea la posibilidad de disparar
     }
 
     void Shoot()
@@ -65,15 +89,36 @@ public class GunSystem : MonoBehaviour
         }
     }
 
+    void Reload()
+    {
+        if (bulletsLeft < ammoSize && !reloading) StartCoroutine(ReloadRoutine());
+    }
+
+    IEnumerator ReloadRoutine()
+    {
+        reloading = true; //Estamos recargando, por lo tanto no podemos recargar
+        //AQUÍ LLAMARIAMOS A LA ANIMACIÓN DE RECARGA
+        yield return new WaitForSeconds(reloadTime); //Esperar tanto tiempo como dura la animación de recarga
+        bulletsLeft = ammoSize; //La cantidad de balas actuales se iguala a la máxima
+        reloading = false; //Termina la recarga, podemos volver a recargar
+    }
+
     #region Input Methods
     public void OnShoot(InputAction.CallbackContext context)
     {
-
+        if (allowButtonHold)
+        {
+            shooting = context.ReadValueAsButton(); //Detecta constantemente si el botón de disparo está apretado
+        }
+        else
+        {
+            if (context.performed) shooting = true; //Shooting solo es true por pulsación
+        }
     }
 
     public void OnReload(InputAction.CallbackContext context)
     {
-
+        if (context.performed) Reload();
     }
     #endregion
 
